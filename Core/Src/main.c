@@ -39,8 +39,10 @@
 #define E220_START_BYTE	0xAA
 #define E220_STOP_BYTE	0xBB
 
-_Bool flag_start_recv;
-uint16_t counterBuffer;
+_Bool flag_start_recv=false;
+uint16_t counterBuffer=0;
+uint8_t rx_byte;
+uint8_t recvBuffer[100];
 
 
 
@@ -194,7 +196,8 @@ int main(void)
 
 
 
-  HAL_UART_Receive_IT(&huart1, (uint8_t*)&recv, 5);
+//  HAL_UART_Receive_IT(&huart1, (uint8_t*)&recv, 5);
+  HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
 
 
 
@@ -538,17 +541,62 @@ static void MX_GPIO_Init(void)
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	if(huart == &huart1) //Приняли с радиоканала
+	if(huart == &huart1) // Radio kanalidan ma'lumot kelsa
 	{
-
 		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+        // Start baytini tekshirish
+        if (rx_byte == E220_START_BYTE)
+        {
+            flag_start_recv = true; // Qabul qilishni boshlash uchun flagni yoqamiz
+            counterBuffer = 0; // Bufer hisoblagichini 0 ga sozlaymiz
+        }
+        else if (flag_start_recv) // Agar qabul qilish boshlangan bo'lsa
+        {
+            // Stop baytini tekshirish
+            if (rx_byte == E220_STOP_BYTE)
+            {
+                flag_start_recv = false; // Qabul qilishni to'xtatish uchun flagni o'chiramiz
+                LED_OFF;
+
+                // Ekranni tozalash
+                SSD1306_Fill(SSD1306_COLOR_BLACK);
+
+                // Buferni to'xtatish baytidan oldingi holatga keltirish
+                recvBuffer[counterBuffer] = '\0';
+
+                // Ekranga matnni chiqarish
+				SSD1306_GotoXY(0, 0);
+				SSD1306_Puts("Received:", &Font_7x10, SSD1306_COLOR_WHITE);
+				SSD1306_GotoXY(0, 15);
+				SSD1306_Puts((char*)recvBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
+				SSD1306_UpdateScreen();
+
+				// Qayta ishlashdan so'ng buferni tozalash
+				memset(recvBuffer, 0, counterBuffer);
+				counterBuffer = 0; // Hisoblagichni nolga qaytarish
+                // Misol uchun, uni UART3 orqali kompyuterga yuborish
+                HAL_UART_Transmit(&huart3, recvBuffer, counterBuffer, 100);
+
+                // Qayta ishlashdan so'ng buferni tozalash
+                memset(recvBuffer, 0, counterBuffer);
+            }
+            else // Agar start va stop bayti bo'lmasa, ma'lumotni buferga yozish
+            {
+            	if (counterBuffer < sizeof(recvBuffer) - 1)
+				{
+					recvBuffer[counterBuffer++] = rx_byte;
+				}
+            }
+        }
+
 	}
-	else if(huart == &huart3) //Приняли с порта
+	else if(huart == &huart3) // Приняли с порта (bu qism o'zgarishsiz qolishi mumkin)
 	{
-
+        // Bu yerda o'zingizning funksionalligingiz bo'lishi mumkin
 	}
 
-	HAL_UART_Receive_IT(&huart1, (uint8_t*)&recv, 5);
+    // Keyingi baytni qabul qilishni kutish
+    HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
@@ -556,9 +604,8 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 	UART_ERROR = HAL_UART_GetError(&huart1);
 	if(UART_ERROR == HAL_UART_ERROR_ORE)	// Ошибка переполнения
 	{
-		HAL_UART_Receive_IT(&huart1, (uint8_t*)&recv, 5);
+		HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
 	}
-
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)

@@ -1,0 +1,9 @@
+../Core/Src/RadioCommunication.c:15:9:DeviceHEX	5
+../Core/Src/RadioCommunication.c:37:14:DeviceNUM	5
+../Core/Src/RadioCommunication.c:59:14:AGRO_Init	1
+../Core/Src/RadioCommunication.c:67:7:AGRO_SendPacket	6
+../Core/Src/RadioCommunication.c:99:7:AGRO_Get_RSSI	2
+../Core/Src/RadioCommunication.c:114:7:AGRO_Get_ID	2
+../Core/Src/RadioCommunication.c:129:7:AGRO_Get_Status	2
+../Core/Src/RadioCommunication.c:144:7:AGRO_Run_Test	2
+../Core/Src/RadioCommunication.c:158:7:AGRO_Perform_Command	9

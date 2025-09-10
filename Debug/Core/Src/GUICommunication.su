@@ -1,0 +1,2 @@
+../Core/Src/GUICommunication.c:20:6:ReadCommand	16	static
+../Core/Src/GUICommunication.c:44:9:SelectCommand	16	static

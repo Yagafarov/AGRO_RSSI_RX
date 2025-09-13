@@ -36,13 +36,17 @@
 /* USER CODE BEGIN PTD */
 #define SSD1306_DISPLAY true
 
-#define E220_START_BYTE	0xAA
-#define E220_STOP_BYTE	0xBB
+#define START_BYTE	0xAA
+#define STOP_BYTE	0xBB
+#define MAX_PACKET_SIZE 256
 
 _Bool flag_start_recv=false;
 uint16_t counterBuffer=0;
 uint8_t rx_byte;
-uint8_t recvBuffer[100];
+uint8_t recvBuffer[MAX_PACKET_SIZE];
+uint16_t rxIndex = 0;
+uint8_t packetLength = 0;
+_Bool receiving = false;
 
 
 
@@ -53,7 +57,6 @@ _Bool AUX_Flag = false;
 
 char buf[30];
 uint8_t recv[50] = {0x00, };
-uint8_t recvBuffer[100];
 
 
 
@@ -539,86 +542,120 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+/* USER CODE BEGIN 4 */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	if(huart == &huart1) // Radio kanalidan ma'lumot kelsa
-	{
-		HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-        // Start baytini tekshirish
-        if (rx_byte == E220_START_BYTE)
+    if (huart == &huart1) // UART1 orqali qabul qilish
+    {
+        if (!receiving)
         {
-            flag_start_recv = true; // Qabul qilishni boshlash uchun flagni yoqamiz
-            counterBuffer = 0; // Bufer hisoblagichini 0 ga sozlaymiz
-        }
-        else if (flag_start_recv) // Agar qabul qilish boshlangan bo'lsa
-        {
-            // Stop baytini tekshirish
-            if (rx_byte == E220_STOP_BYTE)
+            // Paket boshlanishi uchun 2 ta 0xAA ketma-ket bo'lishi kerak
+            if (rxIndex == 0 && rx_byte == START_BYTE)
             {
-                flag_start_recv = false; // Qabul qilishni to'xtatish uchun flagni o'chiramiz
-                LED_OFF;
-
-                // Ekranni tozalash
-                SSD1306_Fill(SSD1306_COLOR_BLACK);
-
-                // Buferni to'xtatish baytidan oldingi holatga keltirish
-                recvBuffer[counterBuffer] = '\0';
-
-                // Ekranga matnni chiqarish
-				SSD1306_GotoXY(0, 0);
-				SSD1306_Puts("Received:", &Font_7x10, SSD1306_COLOR_WHITE);
-				SSD1306_GotoXY(0, 15);
-				SSD1306_Puts((char*)recvBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
-				SSD1306_UpdateScreen();
-
-				// Qayta ishlashdan so'ng buferni tozalash
-				memset(recvBuffer, 0, counterBuffer);
-				counterBuffer = 0; // Hisoblagichni nolga qaytarish
-                // Misol uchun, uni UART3 orqali kompyuterga yuborish
-                HAL_UART_Transmit(&huart3, recvBuffer, counterBuffer, 100);
-
-                // Qayta ishlashdan so'ng buferni tozalash
-                memset(recvBuffer, 0, counterBuffer);
+                recvBuffer[rxIndex++] = rx_byte;
             }
-            else // Agar start va stop bayti bo'lmasa, ma'lumotni buferga yozish
+            else if (rxIndex == 1 && rx_byte == START_BYTE)
             {
-            	if (counterBuffer < sizeof(recvBuffer) - 1)
-				{
-					recvBuffer[counterBuffer++] = rx_byte;
-				}
+                recvBuffer[rxIndex++] = rx_byte;
+                receiving = true; // Paket qabul qilish boshlangan
+            }
+            else
+            {
+                // Noto'g'ri start bayti, rxIndex ni tiklash
+                rxIndex = 0;
             }
         }
+        else
+        {
+            // Paket davomida ma'lumot qabul qilinmoqda
+            recvBuffer[rxIndex++] = rx_byte;
 
-	}
-	else if(huart == &huart3) // Приняли с порта (bu qism o'zgarishsiz qolishi mumkin)
-	{
-        // Bu yerda o'zingizning funksionalligingiz bo'lishi mumkin
-	}
+            if (rxIndex == 3)
+            {
+                // 3-bayt: uzunlik bayti
+                packetLength = recvBuffer[2];
+                // Tekshirish: packetLength maksimal chegaradan oshmasligi kerak
+                if (packetLength > MAX_PACKET_SIZE - 6) // 6 = start(2) + length(1) + stop(2) + margin
+                {
+                    // Xato uzunlik, qabulni bekor qilish
+                    rxIndex = 0;
+                    receiving = false;
+                }
+            }
+            else if (packetLength > 0 && rxIndex == (3 + packetLength + 2))
+            {
+                // Paket oxiri keldi: 2 ta stop bayt (oxirgi ikki bayt)
+                if (recvBuffer[rxIndex-2] == STOP_BYTE && recvBuffer[rxIndex-1] == STOP_BYTE)
+                {
+                    // To'liq paket qabul qilindi, paketni tahlil qilamiz
 
-    // Keyingi baytni qabul qilishni kutish
-    HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
+                    uint8_t address = recvBuffer[3];           // 1-bayt: manzil
+                    uint8_t deviceType = recvBuffer[4];        // 2-bayt: qurilma turi
+                    uint8_t mode = recvBuffer[5];              // 3-bayt: rejim
+                    uint16_t speed = (recvBuffer[6] << 8) | recvBuffer[7]; // 4-5 bayt: tezlik (big endian)
+
+                    // Misol uchun SSD1306 ekranga chiqarish
+#if SSD1306_DISPLAY
+                    char disp_buf[20];
+                    SSD1306_Fill(SSD1306_COLOR_BLACK);
+                    SSD1306_GotoXY(0,0);
+                    sprintf(disp_buf, "Adr: %02X", address);
+                    SSD1306_Puts(disp_buf, &Font_7x10, SSD1306_COLOR_WHITE);
+                    SSD1306_GotoXY(0,15);
+                    sprintf(disp_buf, "Dev: %02X", deviceType);
+                    SSD1306_Puts(disp_buf, &Font_7x10, SSD1306_COLOR_WHITE);
+                    SSD1306_GotoXY(0,30);
+                    sprintf(disp_buf, "Mode: %02X", mode);
+                    SSD1306_Puts(disp_buf, &Font_7x10, SSD1306_COLOR_WHITE);
+                    SSD1306_GotoXY(0,45);
+                    sprintf(disp_buf, "Speed: %u", speed);
+                    SSD1306_Puts(disp_buf, &Font_7x10, SSD1306_COLOR_WHITE);
+                    SSD1306_UpdateScreen();
+#endif
+
+                    // Paketni qayta ishlash kodi shu yerda yoziladi
+
+                }
+                // Paket tugadi, yangi paket kutish uchun o'zgaruvchilarni tiklaymiz
+                rxIndex = 0;
+                receiving = false;
+                packetLength = 0;
+            }
+            else if (rxIndex >= MAX_PACKET_SIZE)
+            {
+                // Buffer to'ldi, ammo paket tugamadi, xato holat
+                rxIndex = 0;
+                receiving = false;
+                packetLength = 0;
+            }
+        }
+        // Yana keyingi baytni qabul qilishni kutish
+        HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
+    }
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
-	UART_ERROR = HAL_UART_GetError(&huart1);
-	if(UART_ERROR == HAL_UART_ERROR_ORE)	// Ошибка переполнения
-	{
-		HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
-	}
+    UART_ERROR = HAL_UART_GetError(&huart1);
+    if (UART_ERROR == HAL_UART_ERROR_ORE) // Ошибка переполнения
+    {
+        HAL_UART_Receive_IT(&huart1, &rx_byte, 1); // 1 bayt qabul qilish
+    }
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	if(GPIO_Pin == GPIO_PIN_1)
-	{
-
-	}
-	else if(GPIO_Pin == GPIO_PIN_9)
-	{
-		AUX_Flag = true;
-	}
+    if (GPIO_Pin == GPIO_PIN_1)
+    {
+        // Boshqa logika
+    }
+    else if (GPIO_Pin == GPIO_PIN_9)
+    {
+        AUX_Flag = true;
+    }
 }
+/* USER CODE END 4 */
+
 /* USER CODE END 4 */
 
 /**

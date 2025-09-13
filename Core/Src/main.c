@@ -38,10 +38,11 @@
 
 #define E220_START_BYTE	0xAA
 #define E220_STOP_BYTE	0xBB
-#define PACKAGE_SIZE = 6
 
-uint8_t packet[PACKET_SIZE];
-uint8_t packetIndex = 0;
+_Bool flag_start_recv=false;
+uint16_t counterBuffer=0;
+uint8_t rx_byte;
+uint8_t recvBuffer[100];
 
 
 
@@ -104,8 +105,6 @@ uint8_t data_RSSI_2[3] = {0xA2, 0xFF, 0x00};
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 
-TIM_HandleTypeDef htim2;
-
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart3;
 
@@ -124,10 +123,8 @@ static void MX_GPIO_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
-uint8_t Mode(uint8_t mode);
-void Speed(uint8_t speed);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -166,13 +163,7 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART3_UART_Init();
   MX_I2C1_Init();
-  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
-
   LED_OFF;
   E220_SetMode(DeepSleep); // Режим сна
   E220_WaitReady(); // Ожидание включения
@@ -206,7 +197,7 @@ int main(void)
 
 
 //  HAL_UART_Receive_IT(&huart1, (uint8_t*)&recv, 5);
-  HAL_UART_Receive_IT(&huart1, &rx_byte, 6);
+  HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
 
 
 
@@ -241,7 +232,7 @@ int main(void)
   SSD1306_UpdateScreen();
 #endif
 
-  //uint16_t numPack = 100;
+  uint16_t numPack = 100;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -396,77 +387,6 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
-
-}
-
-/**
-  * @brief TIM2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM2_Init(void)
-{
-
-  /* USER CODE BEGIN TIM2_Init 0 */
-
-  /* USER CODE END TIM2_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_OC_InitTypeDef sConfigOC = {0};
-
-  /* USER CODE BEGIN TIM2_Init 1 */
-
-  /* USER CODE END TIM2_Init 1 */
-  htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 71;
-  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 999;
-  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM2_Init 2 */
-
-  /* USER CODE END TIM2_Init 2 */
-  HAL_TIM_MspPostInit(&htim2);
 
 }
 
@@ -655,142 +575,28 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 				memset(recvBuffer, 0, counterBuffer);
 				counterBuffer = 0; // Hisoblagichni nolga qaytarish
                 // Misol uchun, uni UART3 orqali kompyuterga yuborish
-                //HAL_UART_Transmit(&huart3, recvBuffer, counterBuffer, 100);
+                HAL_UART_Transmit(&huart3, recvBuffer, counterBuffer, 100);
+
+                // Qayta ishlashdan so'ng buferni tozalash
+                memset(recvBuffer, 0, counterBuffer);
             }
             else // Agar start va stop bayti bo'lmasa, ma'lumotni buferga yozish
             {
             	if (counterBuffer < sizeof(recvBuffer) - 1)
 				{
-            		recvBuffer[counterBuffer++] = rx_byte;
-            		SSD1306_Fill(SSD1306_COLOR_BLACK);
-
-					// Buferni to'xtatish baytidan oldingi holatga keltirish
-					recvBuffer[counterBuffer] = '\0';
-
-					// Ekranga matnni chiqarish
-					SSD1306_GotoXY(0, 0);
-					SSD1306_Puts("Received:", &Font_7x10, SSD1306_COLOR_WHITE);
-					SSD1306_GotoXY(0, 15);
-					SSD1306_Puts((char*)recvBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
-					SSD1306_UpdateScreen();
-
-            		switch(counterBuffer)
-            		{
-						case 1:
-						{
-							Mode(rx_byte);
-							break;
-						}
-						case 2:
-						{
-							Speed(rx_byte);
-							break;
-						}
-//						case 3:
-//						{
-//							//Speed(rx_byte);
-//							//htim2.Instance->CCR1 = speed;
-//							break;
-//						}
-//						case 4:
-//						{
-//							//CRC(rx_byte);
-//							break;
-//						}
-            		}
+					recvBuffer[counterBuffer++] = rx_byte;
 				}
             }
         }
 
 	}
-//	else if(huart == &huart3) // Приняли с порта (bu qism o'zgarishsiz qolishi mumkin)
-//	{
-//        // Bu yerda o'zingizning funksionalligingiz bo'lishi mumkin
-//	}
-
-
+	else if(huart == &huart3) // Приняли с порта (bu qism o'zgarishsiz qolishi mumkin)
+	{
+        // Bu yerda o'zingizning funksionalligingiz bo'lishi mumkin
+	}
 
     // Keyingi baytni qabul qilishni kutish
-    HAL_UART_Receive_IT(&huart1, &rx_byte, 6);
-}
-
-uint8_t Mode(uint8_t mode)
-{
-	switch(mode)
-	{
-		case 1:
-		{
-			HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
-			HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
-			return(mode);
-		}
-		case 2:
-		{
-			HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
-			HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
-			return(mode);
-		}
-		case 3:
-		{
-			HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
-			return(mode);
-		}
-		case 4:
-		{
-			HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
-			return(mode);
-		}
-		default:
-			return(mode);
-	}
-}
-
-void Speed(uint8_t speed)
-{
-	switch(Mode(rx_byte))
-		{
-			case 1:
-			{
-				htim2.Instance->CCR1 = speed;
-				htim2.Instance->CCR4 = speed;
-				break;
-			}
-			case 2:
-			{
-				htim2.Instance->CCR2 = speed;
-				htim2.Instance->CCR3 = speed;
-				break;
-			}
-			case 3:
-			{
-				htim2.Instance->CCR1 = speed;
-				break;
-			}
-			case 4:
-			{
-				htim2.Instance->CCR4 = speed;
-				break;
-			}
-		}
-//	htim2.Instance->CCR1 = speed;
-//
-//	for(uint32_t duty = 0; duty < 1000; duty+=5)
-//	{
-//		htim2.Instance->CCR1 = duty;
-//		htim2.Instance->CCR4 = duty;
-//
-//		HAL_Delay(20);
-//	}
-//	HAL_Delay(1000);
-//	for(int32_t duty = 1000; duty > 0; duty -=5)
-//	{
-//		htim2.Instance->CCR1 = duty;
-//		htim2.Instance->CCR4 = duty;
-//
-//		HAL_Delay(20);
-//	}
-//	htim2.Instance->CCR1 = 0;
-//	htim2.Instance->CCR4 = 0;
+    HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
@@ -798,7 +604,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 	UART_ERROR = HAL_UART_GetError(&huart1);
 	if(UART_ERROR == HAL_UART_ERROR_ORE)	// Ошибка переполнения
 	{
-		HAL_UART_Receive_IT(&huart1, &rx_byte, 6);
+		HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
 	}
 }
 

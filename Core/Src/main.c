@@ -38,11 +38,10 @@
 
 #define E220_START_BYTE	0xAA
 #define E220_STOP_BYTE	0xBB
+#define PACKAGE_SIZE = 6
 
-_Bool flag_start_recv=false;
-uint16_t counterBuffer=0;
-uint8_t rx_byte;
-uint8_t recvBuffer[100];
+uint8_t packet[PACKET_SIZE];
+uint8_t packetIndex = 0;
 
 
 
@@ -207,7 +206,7 @@ int main(void)
 
 
 //  HAL_UART_Receive_IT(&huart1, (uint8_t*)&recv, 5);
-  HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
+  HAL_UART_Receive_IT(&huart1, &rx_byte, 6);
 
 
 
@@ -657,9 +656,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 				counterBuffer = 0; // Hisoblagichni nolga qaytarish
                 // Misol uchun, uni UART3 orqali kompyuterga yuborish
                 //HAL_UART_Transmit(&huart3, recvBuffer, counterBuffer, 100);
-
-                // Qayta ishlashdan so'ng buferni tozalash
-                memset(recvBuffer, 0, counterBuffer);
             }
             else // Agar start va stop bayti bo'lmasa, ma'lumotni buferga yozish
             {
@@ -678,17 +674,18 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 					SSD1306_Puts((char*)recvBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
 					SSD1306_UpdateScreen();
 
-//            		switch(counterBuffer)
-//            		{
-//						case 1:
-//						{
-//							Mode(rx_byte);
-//						}
-//						case 2:
-//						{
-//							Speed(rx_byte);
-//							break;
-//						}
+            		switch(counterBuffer)
+            		{
+						case 1:
+						{
+							Mode(rx_byte);
+							break;
+						}
+						case 2:
+						{
+							Speed(rx_byte);
+							break;
+						}
 //						case 3:
 //						{
 //							//Speed(rx_byte);
@@ -700,7 +697,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 //							//CRC(rx_byte);
 //							break;
 //						}
-//            		}
+            		}
 				}
             }
         }
@@ -714,7 +711,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 
     // Keyingi baytni qabul qilishni kutish
-    HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
+    HAL_UART_Receive_IT(&huart1, &rx_byte, 6);
 }
 
 uint8_t Mode(uint8_t mode)
@@ -801,7 +798,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 	UART_ERROR = HAL_UART_GetError(&huart1);
 	if(UART_ERROR == HAL_UART_ERROR_ORE)	// Ошибка переполнения
 	{
-		HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
+		HAL_UART_Receive_IT(&huart1, &rx_byte, 6);
 	}
 }
 

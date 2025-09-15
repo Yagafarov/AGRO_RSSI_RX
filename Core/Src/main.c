@@ -80,7 +80,8 @@ static void Hardware_Init(void);
 static void Device_Init(void);
 static void Display_Init(void);
 static void ProcessReceivedPacket(void);
-static void UpdateOledDisplay(uint8_t *buffer, uint8_t payload_start);
+static void UpdateOledDisplay(char *title, uint8_t data, uint8_t x, uint8_t y);
+
 
 /* USER CODE BEGIN PFP */
 /* USER CODE END PFP */
@@ -225,95 +226,81 @@ static void Display_Init(void) {
   * @param payload_start: Start index of the payload in the buffer.
   * @retval None
   */
-static void UpdateOledDisplay(uint8_t *buffer, uint8_t payload_start) {
-    uint8_t address = buffer[payload_start];
-    uint8_t deviceType = buffer[payload_start + 1];
-    uint8_t mode = buffer[payload_start + 2];
-    uint16_t speed = (buffer[payload_start + 3] << 8) | buffer[payload_start + 4];
+static void UpdateOledDisplay(char *title, uint8_t data, uint8_t x, uint8_t y) {
+    #if SSD1306_DISPLAY
+        char disp_buf[20];
+        SSD1306_Fill(SSD1306_COLOR_BLACK);
 
-    checkStatus = 0x00;
+        if (checkStatus == 0x00) {
+            // No error - display all information
+            SSD1306_GotoXY(x, y);
+            snprintf(disp_buf, sizeof(disp_buf), "%s %d", title, data);
+            SSD1306_Puts(disp_buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
-    // Check address
-	if (address != 0x01 && address != 0x02) {
-		checkStatus = 0x01;
-	}
-	// Check mode (only if address is valid)
-	if (checkStatus == 0x00 && mode != 0x03 && mode != 0x04) {
-		checkStatus = 0x02;
-	}
+            // Display status (no error)
+            SSD1306_GotoXY(0, 55);
+            snprintf(disp_buf, sizeof(disp_buf), "Status: OK");
+            SSD1306_Puts(disp_buf, &Font_7x10, SSD1306_COLOR_WHITE);
+        } else {
+            // Error - display only status message
+            SSD1306_GotoXY(0, 0);
+            if (checkStatus == 0x01) {
+                snprintf(disp_buf, sizeof(disp_buf), "Address Error");
+            } else if (checkStatus == 0x02) {
+                snprintf(disp_buf, sizeof(disp_buf), "Mode Error");
+            }
 
-#if SSD1306_DISPLAY
-    char disp_buf[20];
-    SSD1306_Fill(SSD1306_COLOR_BLACK);
+            SSD1306_Puts(disp_buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
-    if (checkStatus == 0x00) {
-        // No error - display all information
-        SSD1306_GotoXY(0,0);
-        sprintf(disp_buf, "Adr: %02X", address);
-        SSD1306_Puts(disp_buf, &Font_7x10, SSD1306_COLOR_WHITE);
-        SSD1306_GotoXY(0,15);
-        sprintf(disp_buf, "Dev: %02X", deviceType);
-        SSD1306_Puts(disp_buf, &Font_7x10, SSD1306_COLOR_WHITE);
-        SSD1306_GotoXY(0,30);
-        sprintf(disp_buf, "Mode: %02X", mode);
-        SSD1306_Puts(disp_buf, &Font_7x10, SSD1306_COLOR_WHITE);
-        SSD1306_GotoXY(0,45);
-        sprintf(disp_buf, "Speed: %u", speed);
-        SSD1306_Puts(disp_buf, &Font_7x10, SSD1306_COLOR_WHITE);
-
-        // Display status (no error)
-        SSD1306_GotoXY(0,55);
-        sprintf(disp_buf, "Status: OK");
-        SSD1306_Puts(disp_buf, &Font_7x10, SSD1306_COLOR_WHITE);
-    } else {
-        // Error - display only status message
-        SSD1306_GotoXY(0,0);
-
-        if (checkStatus == 0x01) {
-            sprintf(disp_buf, "Address Error");
-        } else if (checkStatus == 0x02) {
-            sprintf(disp_buf, "Mode Error");
+            // Display error code
+            SSD1306_GotoXY(0, 15);
+            snprintf(disp_buf, sizeof(disp_buf), "Code: %02X", checkStatus);
+            SSD1306_Puts(disp_buf, &Font_7x10, SSD1306_COLOR_WHITE);
         }
 
-        SSD1306_Puts(disp_buf, &Font_7x10, SSD1306_COLOR_WHITE);
-
-        // Display error code
-        SSD1306_GotoXY(0,15);
-        sprintf(disp_buf, "Code: %02X", checkStatus);
-        SSD1306_Puts(disp_buf, &Font_7x10, SSD1306_COLOR_WHITE);
-    }
-
-    SSD1306_UpdateScreen();
-#endif
+        SSD1306_UpdateScreen();
+    #endif
 }
 
-/**
-  * @brief Processes a fully received packet based on its length.
-  * @retval None
-  */
 static void ProcessReceivedPacket(void) {
     uint8_t payload_start = 3; // start bytes (2) + length byte (1)
+    uint8_t address = 0; // Declare address here for use in both cases
 
     // Check for valid stop bytes
-    if (recvBuffer[rxIndex-2] != STOP_BYTE || recvBuffer[rxIndex-1] != STOP_BYTE) {
-        // Invalid packet, return without processing
-        return;
+    if (recvBuffer[rxIndex - 2] != STOP_BYTE || recvBuffer[rxIndex - 1] != STOP_BYTE) {
+        return; // Invalid packet, return without processing
     }
 
     // Process the packet based on its length
-    switch(packetLength) {
+    switch (packetLength) {
         case 0x05: {
-            UpdateOledDisplay(recvBuffer, payload_start);
-        } break;
+            address = recvBuffer[payload_start];
+            uint8_t deviceType = recvBuffer[payload_start + 1];
+            uint8_t mode = recvBuffer[payload_start + 2];
+            uint16_t speed = (recvBuffer[payload_start + 3] << 8) | recvBuffer[payload_start + 4];
+
+            // Check address
+            if (address != 0x01 && address != 0x02) {
+                checkStatus = 0x01;
+            }
+            // Check mode (only if address is valid)
+            if (checkStatus == 0x00 && mode != 0x03 && mode != 0x04) {
+                checkStatus = 0x02;
+            }
+            UpdateOledDisplay("Address: ", address, 0, 15);
+            break; // Add break to prevent fall-through
+        }
         case 0x06: {
-            UpdateOledDisplay(recvBuffer, payload_start);
-        } break;
+            UpdateOledDisplay("Address: ", address, 0, 15);
+            break; // Add break to prevent fall-through
+        }
         default: {
-            // Unknown packet length, handle as an error or ignore
-            // For now, we will just return
+            // Handle unknown packet length
+            break; // Optional: log error or handle accordingly
         }
     }
 }
+
 
 /**
   * @brief  UART Rx Transfer complete callback.

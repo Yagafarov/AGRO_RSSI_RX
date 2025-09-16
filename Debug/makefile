@@ -34,37 +34,37 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := AGRO_RSSI
+BUILD_ARTIFACT_NAME := AGRO_RSSI_RX
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-AGRO_RSSI.elf \
+AGRO_RSSI_RX.elf \
 
 MAP_FILES += \
-AGRO_RSSI.map \
+AGRO_RSSI_RX.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-AGRO_RSSI.list \
+AGRO_RSSI_RX.list \
 
 OBJCOPY_HEX += \
-AGRO_RSSI.hex \
+AGRO_RSSI_RX.hex \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: AGRO_RSSI.elf secondary-outputs
+main-build: AGRO_RSSI_RX.elf secondary-outputs
 
 # Tool invocations
-AGRO_RSSI.elf AGRO_RSSI.map: $(OBJS) $(USER_OBJS) C:\Users\Dinmuhammad\Desktop\loramodul\AGRO_RSSI_RX\STM32F103C8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "AGRO_RSSI.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"C:\Users\Dinmuhammad\Desktop\loramodul\AGRO_RSSI_RX\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="AGRO_RSSI.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
+AGRO_RSSI_RX.elf AGRO_RSSI_RX.map: $(OBJS) $(USER_OBJS) C:\Users\Dinmuhammad\STM32CubeIDE\workspace_1.19.0\AGRO_RSSI_RX\STM32F103C8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "AGRO_RSSI_RX.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"C:\Users\Dinmuhammad\STM32CubeIDE\workspace_1.19.0\AGRO_RSSI_RX\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="AGRO_RSSI_RX.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -73,19 +73,19 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-AGRO_RSSI.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "AGRO_RSSI.list"
+AGRO_RSSI_RX.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "AGRO_RSSI_RX.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
-AGRO_RSSI.hex: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objcopy  -O ihex $(EXECUTABLES) "AGRO_RSSI.hex"
+AGRO_RSSI_RX.hex: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objcopy  -O ihex $(EXECUTABLES) "AGRO_RSSI_RX.hex"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) AGRO_RSSI.elf AGRO_RSSI.hex AGRO_RSSI.list AGRO_RSSI.map default.size.stdout
+	-$(RM) AGRO_RSSI_RX.elf AGRO_RSSI_RX.hex AGRO_RSSI_RX.list AGRO_RSSI_RX.map default.size.stdout
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST) $(OBJCOPY_HEX)

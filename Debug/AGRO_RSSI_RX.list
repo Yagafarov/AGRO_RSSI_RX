@@ -2501,9 +2501,9 @@ static void SendResponse(uint8_t status_code, uint8_t received_address)
  800154e:	71bb      	strb	r3, [r7, #6]
     uint8_t packet[8];
     packet[0]=START_BYTE; packet[1]=START_BYTE;
- 8001550:	23aa      	movs	r3, #170	@ 0xaa
+ 8001550:	2301      	movs	r3, #1
  8001552:	723b      	strb	r3, [r7, #8]
- 8001554:	23aa      	movs	r3, #170	@ 0xaa
+ 8001554:	2301      	movs	r3, #1
  8001556:	727b      	strb	r3, [r7, #9]
     packet[2]=0x03;     // payload length
  8001558:	2303      	movs	r3, #3
@@ -2587,7 +2587,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             if(rx_byte==START_BYTE)
  80015e8:	4b4f      	ldr	r3, [pc, #316]	@ (8001728 <HAL_UART_RxCpltCallback+0x17c>)
  80015ea:	781b      	ldrb	r3, [r3, #0]
- 80015ec:	2baa      	cmp	r3, #170	@ 0xaa
+ 80015ec:	2b01      	cmp	r3, #1
  80015ee:	f040 808b 	bne.w	8001708 <HAL_UART_RxCpltCallback+0x15c>
             {
                 rxIndex=0; recvBuffer[rxIndex++]=rx_byte;
@@ -2617,7 +2617,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             if(rx_byte==START_BYTE)
  8001616:	4b44      	ldr	r3, [pc, #272]	@ (8001728 <HAL_UART_RxCpltCallback+0x17c>)
  8001618:	781b      	ldrb	r3, [r3, #0]
- 800161a:	2baa      	cmp	r3, #170	@ 0xaa
+ 800161a:	2b01      	cmp	r3, #1
  800161c:	d10e      	bne.n	800163c <HAL_UART_RxCpltCallback+0x90>
             {
                 recvBuffer[rxIndex++]=rx_byte;

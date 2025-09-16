@@ -17,7 +17,7 @@
 
 /* Private defines -----------------------------------------------------------*/
 #define SSD1306_DISPLAY true
-#define START_BYTE      0xAA
+#define START_BYTE      0x01
 #define STOP_BYTE       0xBB
 #define MAX_PACKET_SIZE 256
 
